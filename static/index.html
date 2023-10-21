@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+
+        #dragDiv {
+            width: 100%;
+            height: 80%;
+            background-color: #ccc;
+            touch-action: none;
+            /* 防止浏览器默认的拖动效果 */
+        }
+
+        .button {
+            margin: 10px;
+            padding: 10px 10px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .button:hover {
+            background-color: white;
+            color: #4CAF50;
+        }
+
+        .inputField {
+            padding: 10px;
+            width: 120px;
+            font-size: 16px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+
+    </style>
+</head>
+
+<body>
+<div id="container">
+    <div id="dragDiv" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)"
+         ontouchend="handleTouchEnd(event)" onclick="handleClick(event)" ondblclick="handleDoubleClick(event)">
+        <!-- 这里放你的内容 -->
+    </div>
+    <div id="buttonContainer">
+        <input type="text" id="message" value="你会什么" placeholder="Enter message" class="inputField">
+        <button class="button" onclick="sendMessage()">发送文本</button>
+        <button class="button" onclick="handBackspace()">退格键</button>
+        <button class="button" onclick="handleRightClick(event)">鼠标右键</button>
+
+    </div>
+</div>
+</body>
+<script>
+    const apiUrl = (endpoint) => `/api${endpoint}`;
+
+    let isDragging = false;
+    let lastTouch = { x: 0, y: 0 };
+
+    const sendApiRequest = async (endpoint, data = {}) => {
+        try {
+            const response = await fetch(apiUrl(endpoint), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            });
+            const result = await response.json();
+            console.log(result);
+            return result;
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+
+    const handleTouchStart = (event) => {
+        lastTouch.x = event.touches[0].clientX;
+        lastTouch.y = event.touches[0].clientY;
+        isDragging = true;
+    };
+
+    const handleTouchMove = (event) => {
+        if (isDragging) {
+            const currentTouchX = event.touches[0].clientX;
+            const currentTouchY = event.touches[0].clientY;
+            const deltaX = currentTouchX - lastTouch.x;
+            const deltaY = currentTouchY - lastTouch.y;
+
+            console.log('相对坐标：', deltaX, deltaY);
+
+            sendApiRequest('/mouserelativeposition', { deltaX, deltaY });
+
+            lastTouch.x = currentTouchX;
+            lastTouch.y = currentTouchY;
+        }
+    };
+
+    const handleTouchEnd = () => {
+        lastTouch.x = 0;
+        lastTouch.y = 0;
+        isDragging = false;
+    };
+
+    const handleClick = (event) => {
+        const x = event.clientX;
+        const y = event.clientY;
+        sendApiRequest('/mouseclick', { type: 'click', x, y });
+    };
+
+    const handleDoubleClick = (event) => {
+        const x = event.clientX;
+        const y = event.clientY;
+        sendApiRequest('/mouseclick', { type: 'dblclick', x, y });
+    };
+
+    const handleRightClick = (event) => {
+        event.preventDefault();
+        const x = event.clientX;
+        const y = event.clientY;
+        sendApiRequest('/mouserightclick', { type: 'rightclick', x, y });
+    };
+
+    const handBackspace = () => {
+        sendApiRequest('/backspace');
+    };
+
+    const sendMessage = () => {
+        const message = document.getElementById('message').value;
+        sendApiRequest('/message', { message });
+    };
+</script>
+
+
+</html>
