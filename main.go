@@ -9,6 +9,12 @@ import (
 	"github.com/go-vgo/robotgo"
 )
 
+// 定义全局变量 G 里面有 x 和 y
+var G = struct {
+	X int
+	Y int
+}{}
+
 func main() {
 	// 创建一个Gin引擎
 	router := gin.Default()
@@ -25,8 +31,6 @@ func main() {
 	// 定义处理鼠标移动的路由
 	router.POST("/api/mouserelativeposition", handleMouseMove)
 	router.POST("/api/mouseclick", handleMouseClick)
-	router.POST("/api/mousedblclick", handleMouseDoubleClick)
-	router.POST("/api/mouserightclick", handleMouseRightClick)
 	router.POST("/api/message", handleMessage)
 
 	router.POST("/api/backspace", handleBackspace)
@@ -40,57 +44,65 @@ func handleMouseMove(c *gin.Context) {
 	// 获取鼠标移动的距离
 	xStr := egin.I(c, "deltaX", "")
 	yStr := egin.I(c, "deltaY", "")
-
-	// 将字符串转换为整数
+	actionType := egin.I(c, "actionType", "")
+	println(xStr, xStr)
 	xDelta, errX := strconv.Atoi(xStr)
 	yDelta, errY := strconv.Atoi(yStr)
 
 	if errX != nil || errY != nil {
+		println(errX.Error(), errY.Error())
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid coordinates"})
 		return
 	}
-	//println(xDelta, yDelta)
-	// 获取当前鼠标位置
-	x, y := robotgo.GetMousePos()
-	//println(x, y)
-	// 计算新的鼠标位置
-	newX := x + xDelta
-	newY := y + yDelta
-	//println("newX", newX, newY)
-	//// 调整本地机器上的鼠标位置
-	//robotgo.Move(newX, newY)
-	robotgo.MoveMouseSmooth(newX, newY, 1.0, 1.0)
-	// 返回成功的响应
-	c.JSON(http.StatusOK, gin.H{"status": "success", "newX": newX, "newY": newY})
+
+	if actionType == "TouchStart" {
+		G.X, G.Y = robotgo.GetMousePos()
+		println("TouchStart", G.X, G.Y)
+		c.JSON(http.StatusOK, gin.H{"status": "success", "newX": 0, "newY": 0})
+
+	}
+	if actionType == "Mouse" {
+		if G.X == 0 && G.Y == 0 {
+			G.X, G.Y = robotgo.GetMousePos()
+			println("Mouse", G.X, G.Y)
+		}
+		newX := G.X + xDelta
+		newY := G.Y + yDelta
+		println(newX, newY)
+
+		//robotgo.Move(newX, newY)
+		robotgo.MoveSmooth(newX, newY, 1.0, 1.0)
+		c.JSON(http.StatusOK, gin.H{"status": "success", "newX": newX, "newY": newY})
+	}
+	if actionType == "ScrollBar" {
+		//计算出是上滑还是下滑
+		if yDelta > 0 {
+			robotgo.ScrollMouse(yDelta, "up")
+		} else {
+			robotgo.ScrollMouse(-yDelta, "down")
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "success", "newX": 0, "newY": 0})
+	}
+
 }
 
 // 处理点击事件的函数
 func handleMouseClick(c *gin.Context) {
-	// 处理鼠标点击事件
+	clickType := egin.I(c, "type", "")
+	println("clickType", clickType)
 	x, y := robotgo.GetMousePos()
-	// 这里可以添加额外的逻辑
-	robotgo.Click("left", false)
 
+	if clickType == "click" {
+		robotgo.Click("left", false)
+	}
+	if clickType == "dblclick" {
+		robotgo.Click("left", true)
+	}
+	if clickType == "rightclick" {
+		robotgo.Click("right", false)
+
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "type": "click", "x": x, "y": y})
-}
-
-// 处理双击事件的函数
-func handleMouseDoubleClick(c *gin.Context) {
-	// 处理鼠标双击事件
-	x, y := robotgo.GetMousePos()
-	// 这里可以添加额外的逻辑
-	robotgo.Click("left", true)
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "type": "dblclick", "x": x, "y": y})
-}
-
-func handleMouseRightClick(context *gin.Context) {
-	// 处理鼠标右键点击事件
-	x, y := robotgo.GetMousePos()
-	// 这里可以添加额外的逻辑
-	robotgo.Click("right", false)
-
-	context.JSON(http.StatusOK, gin.H{"status": "success", "type": "rightclick", "x": x, "y": y})
 
 }
 
